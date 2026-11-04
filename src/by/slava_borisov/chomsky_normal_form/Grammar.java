@@ -6,6 +6,37 @@ public class Grammar {
 
     private final LinkedHashMap<String, LinkedHashSet<List<String>>> rules;
     private String start;
+    private Set<String> lastNullable = new LinkedHashSet<>();
+    private String lastNewStart;
+    private Set<String> lastUnitRules = new LinkedHashSet<>();
+    private Set<String> lastProductive = new LinkedHashSet<>();
+    private Set<String> lastReachable = new LinkedHashSet<>();
+    private Grammar grammarAfterProductive;
+    private Grammar grammarAfterReachable;
+
+    public Set<String> getLastNullable() {
+        return new LinkedHashSet<>(lastNullable);
+    }
+
+    public String getLastNewStart() {
+        return lastNewStart;
+    }
+
+    public Set<String> getLastUnitRules() {
+        return new LinkedHashSet<>(lastUnitRules);
+    }
+
+    public Set<String> getLastProductive() {
+        return new LinkedHashSet<>(lastProductive);
+    }
+
+    public Set<String> getLastReachable() {
+        return new LinkedHashSet<>(lastReachable);
+    }
+
+    public Grammar getGrammarAfterProductive() {
+        return grammarAfterProductive;
+    }
 
     public Grammar() {
         rules = new LinkedHashMap<>();
@@ -41,25 +72,18 @@ public class Grammar {
         }
 
         // Получаем набор вариантов правила или создаём новый, если его ещё нет
-        LinkedHashSet<List<String>> alternatives =
-                rules.computeIfAbsent(
-                        left,
-                        key -> new LinkedHashSet<>()
-                );
-
+        LinkedHashSet<List<String>> alternatives = rules.computeIfAbsent(left, key -> new LinkedHashSet<>());
         String rightText = parts[1].trim();
 
         if (rightText.isEmpty()) {
             throw new IllegalArgumentException("Правая часть не может быть пустой. Используйте ε.");
         }
 
-        // Разделяем правую часть на варианты по символу |.
         String[] variants = rightText.split("\\|");
 
         for (String variant : variants) {
             String trimmed = variant.trim();
 
-            // Если вариант пустой или содержит ε, добавляем пустое правило
             if (trimmed.isEmpty() || trimmed.equals("ε")) {
                 alternatives.add(new ArrayList<>());
             } else {
@@ -71,22 +95,12 @@ public class Grammar {
 
     /// Проверяет, что для каждого используемого нетерминала есть правило
     public void validate() {
-        // Получаем все нетерминалы, для которых заданы правила.
         Set<String> nonTerminals = rules.keySet();
 
-        // Перебираем все правила грамматики.
-        for (Map.Entry<String, LinkedHashSet<List<String>>> entry
-                : rules.entrySet()) {
-
-            // Перебираем варианты правой части каждого правила.
+        for (Map.Entry<String, LinkedHashSet<List<String>>> entry : rules.entrySet()) {
             for (List<String> right : entry.getValue()) {
-
-                // Проверяем каждый символ правой части.
                 for (String symbol : right) {
-                    // если нетерминал, то ошибка
-                    if (isNonTerminal(symbol)
-                            && !nonTerminals.contains(symbol)) {
-
+                    if (isNonTerminal(symbol) && !nonTerminals.contains(symbol)) {
                         throw new IllegalArgumentException("Для нетерминала " + symbol + " отсутствует правило."
                         );
                     }
@@ -105,10 +119,8 @@ public class Grammar {
 
     /// Создаёт копию грамматики
     private Grammar copy() {
-        LinkedHashMap<String, LinkedHashSet<List<String>>> copiedRules =
-                new LinkedHashMap<>();
+        LinkedHashMap<String, LinkedHashSet<List<String>>> copiedRules = new LinkedHashMap<>();
 
-        // Перебираем все правила исходной грамматики
         for (Map.Entry<String, LinkedHashSet<List<String>>> entry : rules.entrySet()) {
 
             // Создаём новый набор вариантов правила
@@ -213,6 +225,9 @@ public class Grammar {
             }
         } while (changed);
 
+        lastNullable = new LinkedHashSet<>(nullable);
+        lastNewStart = null;
+
         // Создаём новую грамматику без ε-продукций
         Grammar result = new Grammar();
         result.start = start;
@@ -226,6 +241,7 @@ public class Grammar {
         // Если стартовый символ может порождать ε, добавляем новый стартовый символ.
         if (startNullable) {
             String newStart = createFreshNonTerminal("S", reservedSymbols);
+            lastNewStart = newStart;
             result.start = newStart;
             result.rules.put(newStart, new LinkedHashSet<>());
             result.rules.get(newStart).add(new ArrayList<>(List.of(start)));
@@ -301,8 +317,7 @@ public class Grammar {
         // Находим все цепные правила грамматики
         Set<String> unitRules = new LinkedHashSet<>();
 
-        for (Map.Entry<String, LinkedHashSet<List<String>>> entry
-                : rules.entrySet()) {
+        for (Map.Entry<String, LinkedHashSet<List<String>>> entry : rules.entrySet()) {
 
             for (List<String> right : entry.getValue()) {
                 if (isUnit(right)) {
@@ -310,6 +325,8 @@ public class Grammar {
                 }
             }
         }
+
+        lastUnitRules = new LinkedHashSet<>(unitRules);
 
         // Создаём новую грамматику без цепных правил
         Grammar result = new Grammar();
@@ -369,10 +386,8 @@ public class Grammar {
         do {
             changed = false;
 
-            for (Map.Entry<String, LinkedHashSet<List<String>>> entry
-                    : rules.entrySet()) {
+            for (Map.Entry<String, LinkedHashSet<List<String>>> entry : rules.entrySet()) {
 
-                // Получаем нетерминал из левой части правила
                 String left = entry.getKey();
 
                 // Пропускаем нетерминалы, которые уже найдены
@@ -386,8 +401,7 @@ public class Grammar {
 
                     // Проверяем, могут ли все нетерминалы справа порождать строки
                     for (String symbol : right) {
-                        if (isNonTerminal(symbol)
-                                && !productive.contains(symbol)) {
+                        if (isNonTerminal(symbol) && !productive.contains(symbol)) {
 
                             allProductive = false;
                             break;
@@ -402,6 +416,8 @@ public class Grammar {
                 }
             }
         } while (changed);
+
+        lastProductive = new LinkedHashSet<>(productive);
 
         if (!productive.contains(start)) {
             throw new IllegalArgumentException(
@@ -445,6 +461,8 @@ public class Grammar {
             productiveGrammar.rules.put(nonTerminal, alternatives);
         }
 
+        grammarAfterProductive = productiveGrammar.copy();
+
         // Начинаем поиск достижимых нетерминалов со стартового символа
         Set<String> reachable = new LinkedHashSet<>();
         Queue<String> queue = new ArrayDeque<>();
@@ -475,6 +493,8 @@ public class Grammar {
             }
         }
 
+        lastReachable = new LinkedHashSet<>(reachable);
+
         // Создаём итоговую грамматику без недостижимых нетерминалов
         Grammar result = new Grammar();
         result.start = start;
@@ -496,6 +516,8 @@ public class Grammar {
             }
         }
 
+        grammarAfterReachable = result.copy();
+
         return result;
     }
 
@@ -508,9 +530,7 @@ public class Grammar {
 
         for (String left : new ArrayList<>(result.rules.keySet())) {
 
-            // Создаём набор новых вариантов правила
-            LinkedHashSet<List<String>> updatedAlternatives =
-                    new LinkedHashSet<>();
+            LinkedHashSet<List<String>> updatedAlternatives = new LinkedHashSet<>();
 
             for (List<String> right : result.rules.get(left)) {
 
@@ -555,7 +575,6 @@ public class Grammar {
                 updatedAlternatives.add(updatedRight);
             }
 
-            // Заменяем старые варианты правила новыми
             result.rules.put(left, updatedAlternatives);
         }
 
@@ -566,15 +585,12 @@ public class Grammar {
     public Grammar binarize() {
         Grammar result = copy();
 
-        LinkedHashMap<String, LinkedHashSet<List<String>>> updatedRules =
-                new LinkedHashMap<>();
+        LinkedHashMap<String, LinkedHashSet<List<String>>> updatedRules = new LinkedHashMap<>();
 
         // Запоминаем все существующие символы, чтобы не создавать совпадающие имена
-        Set<String> reservedSymbols =
-                new LinkedHashSet<>(result.getAllSymbols());
+        Set<String> reservedSymbols = new LinkedHashSet<>(result.getAllSymbols());
 
-        for (Map.Entry<String, LinkedHashSet<List<String>>> entry
-                : result.rules.entrySet()) {
+        for (Map.Entry<String, LinkedHashSet<List<String>>> entry : result.rules.entrySet()) {
 
             String left = entry.getKey();
 
@@ -597,8 +613,7 @@ public class Grammar {
                 for (int i = 0; i < right.size() - 2; i++) {
 
                     // Создаем новый нетерминал для следующего звена цепочки
-                    String nextNonTerminal =
-                            createFreshNonTerminal("X", reservedSymbols);
+                    String nextNonTerminal = createFreshNonTerminal("X", reservedSymbols);
 
                     // Добавляем правило из двух символов
                     updatedRules.computeIfAbsent(

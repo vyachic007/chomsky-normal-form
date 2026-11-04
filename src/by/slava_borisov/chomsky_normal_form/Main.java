@@ -8,6 +8,7 @@ public class Main {
         Scanner scanner = new Scanner(System.in);
 
         System.out.println("Введите грамматику:");
+        System.out.println();
 
         Grammar grammar = new Grammar();
 
@@ -40,31 +41,80 @@ public class Main {
 
             System.out.println();
             System.out.println("Этап 1. Удаление ε-продукций");
+
             Grammar result = grammar.removeEmpty();
+
+            System.out.println();
+            System.out.println("Множество nullable-символов: "
+                    + grammar.getLastNullable());
+
+            if (grammar.getLastNewStart() != null) {
+                System.out.println();
+                System.out.println("Добавлен новый стартовый символ: "
+                        + grammar.getLastNewStart());
+            }
+
+            System.out.println();
             System.out.println("Грамматика после удаления ε-продукций:");
             result.print();
 
             System.out.println();
             System.out.println("Этап 2. Удаление цепных правил");
+
+            Grammar grammarBeforeUnit = result;
             result = result.removeUnit();
+
+            System.out.println();
+            System.out.println("Множество цепных правил: "
+                    + grammarBeforeUnit.getLastUnitRules());
+
+            System.out.println();
             System.out.println("Грамматика после удаления цепных правил:");
             result.print();
 
             System.out.println();
             System.out.println("Этап 3. Удаление бесполезных символов");
+
+            Grammar grammarBeforeUseless = result;
             result = result.removeUseless();
-            System.out.println("Грамматика после удаления бесполезных символов:");
+
+            System.out.println();
+            System.out.println("3.1. Удаление непорождающих символов");
+
+            System.out.println();
+            System.out.println("Множество порождающих нетерминалов: "
+                    + grammarBeforeUseless.getLastProductive());
+
+            System.out.println();
+            System.out.println("Грамматика после удаления непорождающих символов:");
+            grammarBeforeUseless.getGrammarAfterProductive().print();
+
+            System.out.println();
+            System.out.println("3.2. Удаление недостижимых символов");
+
+            System.out.println();
+            System.out.println("Множество достижимых нетерминалов: "
+                    + grammarBeforeUseless.getLastReachable());
+
+            System.out.println();
+            System.out.println("Грамматика после удаления недостижимых символов:");
             result.print();
 
             System.out.println();
             System.out.println("Этап 4. Замена терминалов в длинных правых частях");
+
             result = result.replaceTerminals();
+
+            System.out.println();
             System.out.println("Грамматика после замены терминалов:");
             result.print();
 
             System.out.println();
             System.out.println("Этап 5. Бинаризация правил");
+
             result = result.binarize();
+
+            System.out.println();
             System.out.println("Грамматика после бинаризации:");
             result.print();
 
